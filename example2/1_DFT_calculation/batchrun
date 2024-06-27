@@ -1,0 +1,42 @@
+#!/bin/bash
+#SBATCH --job-name=Bi
+#SBATCH --output=output.out
+#SBATCH --error=error.error
+#SBATCH --time=4-00:00:00
+#SBATCH --mem=0
+#SBATCH --ntasks-per-node=64
+#SBATCH --partition=bansil2
+#SBATCH -N 4
+#SBATCH --constraint=ib,zen2
+
+module load intel/compilers-2022.0.1
+module load intel/mpi-2021.5.0
+module load hdf5/1.12.1-intel2022
+
+source /shared/centos7/intel/oneapi/2021.3.0/setvars.sh
+
+# Set the initial working directory
+cd ../work_dir/dataset/raw/0
+
+# Loop over directories from 0 to 575
+for i in {0..80}; do
+    echo "Processing directory ../work_dir/dataset/raw/$i"
+    
+    # Change to the appropriate directory
+    cd ../$i
+    
+    # Run the openmx program using MPI
+    mpirun -np 64 /home/t.hsu/openmx/source/openmx openmx_in.dat > openmx.std
+    
+    # Append the output to a cumulative file
+    cat openmx.out >> openmx.scfout
+    
+    # Clean up files
+    rm -r openmx_rst *.cube
+    
+    # Return to the initial directory before the next iteration
+    cd - > /dev/null
+done
+
+echo "All tasks completed."
+
