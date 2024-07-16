@@ -303,9 +303,9 @@ function parse_openmx(filepath::String; return_DM::Bool = false)
         ((x2, y2, z)->((x, y)->x .+= z * y).(x2, y2)).(OLP_r[axis], OLP, atom_pos[axis,:])
     end
     """
-    for axis in 1:3,i in 1:atomnum, j in 1:FNAN[i]
-        OLP_r[axis][i][j] .+= atom_pos[axis,i] * OLP[i][j]
-    end
+    # for axis in 1:3,i in 1:atomnum, j in 1:FNAN[i]
+    #     OLP_r[axis][i][j] .+= atom_pos[axis,i] * OLP[i][j]
+    # end
 
     # fix type mismatch
     atv_ijk = Matrix{Int64}(atv_ijk)
@@ -453,18 +453,18 @@ if parsed_args["save_overlap"]
         end
     end
     h5open("overlaps_rx.h5", "w") do fid
-        for (key, overlap) in overlaps_rx
-            write(fid, string(key), permutedims(overlap))
+        for (key, rx) in overlaps_rx
+            write(fid, string(key), permutedims(rx))
         end
     end
     h5open("overlaps_ry.h5", "w") do fid
-        for (key, overlap) in overlaps_ry
-            write(fid, string(key), permutedims(overlap))
+        for (key, ry) in overlaps_ry
+            write(fid, string(key), permutedims(ry))
         end
     end
     h5open("overlaps_rz.h5", "w") do fid
-        for (key, overlap) in overlaps_rz
-            write(fid, string(key), permutedims(overlap))
+        for (key, rz) in overlaps_rz
+            write(fid, string(key), permutedims(rz))
         end
     end
 end
