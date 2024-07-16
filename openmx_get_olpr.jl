@@ -24,7 +24,11 @@ function parse_commandline()
        "--save_overlap", "-s"
             help = ""
             arg_type = Bool
-            default = false
+            default = true
+        "--save_position", "-r"
+            help = ""
+            arg_type = Bool
+            default = true
     end
     return parse_args(s)
 end
@@ -345,9 +349,7 @@ function get_data(filepath_scfout::String, Rcut::Float64; if_DM::Bool = false)
     # process hamiltonian
     norbits = sum(Total_NumOrbs)
     overlaps = Dict{Array{Int64, 1}, Array{Float64, 2}}()
-    overlaps_rx = Dict{Array{Int64, 1}, Array{Float64, 2}}()
-    overlaps_ry = Dict{Array{Int64, 1}, Array{Float64, 2}}()
-    overlaps_rz = Dict{Array{Int64, 1}, Array{Float64, 2}}()
+    positions = Dict{Array{Int64, 1}, Array{Float64, 3}}()
 
     if SpinP_switch == 0
         spinful = false
@@ -380,23 +382,17 @@ function get_data(filepath_scfout::String, Rcut::Float64; if_DM::Bool = false)
         site_j = natn[site_i][index_nn_i]
         R = atv_ijk[:, ncn[site_i][index_nn_i]]
         e_ij = lat * R + site_positions[:, site_j] - site_positions[:, site_i]
-        # if norm(e_ij) > Rcut
-            # continue
-        # end
+
         key = cat(dims=1, R, site_i, site_j)
-        # site_list_i = neighbour_site[site_i]
-        # local_coordinate = _get_local_coordinate(e_ij, site_list_i)
-        # local_coordinates[key] = local_coordinate
         
         overlap = permutedims(OLP[site_i][index_nn_i])
         overlaps[key] = overlap
 
-        overlap_rx = permutedims(OLP_r[1][site_i][index_nn_i])
-        overlap_ry = permutedims(OLP_r[2][site_i][index_nn_i])
-        overlap_rz = permutedims(OLP_r[3][site_i][index_nn_i])
-        overlaps_rx[key] = overlap_rx
-        overlaps_ry[key] = overlap_ry
-        overlaps_rz[key] = overlap_rz
+        position = zeros(Float64, 3, size(overlap, 1), size(overlap, 2))
+        for alpha = 1:3
+            position[alpha, :, :] = permutedims(OLP_r[alpha][site_i][index_nn_i])
+        end
+        positions[key] = position
 
         if SpinP_switch == 0
             hamiltonian = permutedims(Hk[1][site_i][index_nn_i])
@@ -430,14 +426,14 @@ function get_data(filepath_scfout::String, Rcut::Float64; if_DM::Bool = false)
         end
     end
 
-    return element, overlaps, density_matrixs, hamiltonians, fermi_level, orbital_types, lat, site_positions, spinful, R_list, overlaps_rx, overlaps_ry, overlaps_rz
+    return element, overlaps, positions, density_matrixs, hamiltonians, fermi_level, orbital_types, lat, site_positions, spinful, R_list
 end
 
 parsed_args["input_dir"] = abspath(parsed_args["input_dir"])
 mkpath(parsed_args["output_dir"])
 cd(parsed_args["output_dir"])
 
-element, overlaps, density_matrixs, hamiltonians, fermi_level, orbital_types, lat, site_positions, spinful, R_list, overlaps_rx, overlaps_ry, overlaps_rz = get_data(joinpath(parsed_args["input_dir"], "openmx.scfout"), -1.0; if_DM=parsed_args["if_DM"])
+element, overlaps, positions, density_matrixs, hamiltonians, fermi_level, orbital_types, lat, site_positions, spinful, R_list = get_data(joinpath(parsed_args["input_dir"], "openmx.scfout"), -1.0; if_DM=parsed_args["if_DM"])
 
 if parsed_args["if_DM"]
     h5open("density_matrixs.h5", "w") do fid
@@ -452,23 +448,15 @@ if parsed_args["save_overlap"]
             write(fid, string(key), permutedims(overlap))
         end
     end
-    h5open("overlaps_rx.h5", "w") do fid
-        for (key, rx) in overlaps_rx
-            write(fid, string(key), permutedims(rx))
-        end
-    end
-    h5open("overlaps_ry.h5", "w") do fid
-        for (key, ry) in overlaps_ry
-            write(fid, string(key), permutedims(ry))
-        end
-    end
-    h5open("overlaps_rz.h5", "w") do fid
-        for (key, rz) in overlaps_rz
-            write(fid, string(key), permutedims(rz))
+end
+
+if parsed_args["save_position"]
+    h5open("positions.h5", "w") do fid
+        for (key, position) in positions
+            write(fid, string(key), permutedims(position, (3, 2, 1)))
         end
     end
 end
-
 # h5open("hamiltonians.h5", "w") do fid
 #     for (key, hamiltonian) in hamiltonians
 #         write(fid, string(key), permutedims(hamiltonian))
